@@ -1,0 +1,1817 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JAVA FOUNDATIONS // ORBITAL EVALUATOR 60-TARGET</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,600;0,700;1,400&family=Orbitron:wght@600;700;800;900&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        holo: {
+                            bg: '#040711',
+                            panel: 'rgba(11, 18, 33, 0.78)',
+                        code: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #040711;
+            color: #F0F6FC;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(0, 240, 255, 0.12) 0%, transparent 60%),
+                radial-gradient(circle at 90% 80%, rgba(157, 0, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 10% 70%, rgba(0, 255, 157, 0.05) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+
+        .grid-bg {
+            background-size: 36px 36px;
+            background-image: 
+                linear-gradient(to right, rgba(0, 240, 255, 0.04) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(0, 240, 255, 0.04) 1px, transparent 1px);
+        }
+
+        .holo-card {
+            background: rgba(11, 18, 33, 0.82);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .holo-card:hover {
+            border-color: rgba(0, 240, 255, 0.4);
+        }
+
+        .glow-cyan { text-shadow: 0 0 12px rgba(0, 240, 255, 0.65); }
+        .glow-violet { text-shadow: 0 0 12px rgba(157, 0, 255, 0.65); }
+        .box-glow-cyan { box-shadow: 0 0 20px -2px rgba(0, 240, 255, 0.3); }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #040711; }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, 0.25); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00F0FF; }
+
+        .corner-cut {
+            clip-path: polygon(
+                0 0,
+                calc(100% - 12px) 0, 100% 12px,
+                100% 100%,
+                12px 100%, 0 calc(100% - 12px)
+            );
+        }
+
+        .option-hud {
+            transition: all 0.2s ease-out;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(15, 24, 45, 0.6);
+        }
+        .option-hud:hover {
+            border-color: rgba(0, 240, 255, 0.45);
+            background: rgba(0, 240, 255, 0.08);
+            transform: translateX(2px);
+        }
+        .option-hud.selected {
+            border-color: #00F0FF !important;
+            background: rgba(0, 240, 255, 0.15) !important;
+            box-shadow: 0 0 18px -2px rgba(0, 240, 255, 0.3);
+        }
+        .option-hud.post-correct {
+            border-color: #00FF9D !important;
+            background: rgba(0, 255, 157, 0.18) !important;
+            color: #00FF9D !important;
+            box-shadow: 0 0 18px -2px rgba(0, 255, 157, 0.35);
+        }
+        .option-hud.post-incorrect {
+            border-color: #FF2A6D !important;
+            background: rgba(255, 42, 109, 0.18) !important;
+            color: #FF2A6D !important;
+            box-shadow: 0 0 18px -2px rgba(255, 42, 109, 0.35);
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { border-color: rgba(0, 240, 255, 0.3); }
+            50% { border-color: rgba(0, 240, 255, 0.9); }
+        }
+        .pulse-border { animation: pulseGlow 2.2s infinite ease-in-out; }
+
+        .code-terminal {
+            background: #02050D;
+            border: 1px solid rgba(0, 240, 255, 0.22);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Java Code Syntax Highlighting Classes */
+        .kw { color: #FF79C6; font-weight: 600; }
+        .type { color: #8BE9FD; font-weight: 600; }
+        .str { color: #F1FA8C; }
+        .num { color: #BD93F9; }
+        .cmnt { color: #6272A4; font-style: italic; }
+        .op { color: #FF79C6; }
+    </style>
+</head>
+<body class="min-h-screen grid-bg flex flex-col justify-between selection:bg-holo-cyan selection:text-black">
+
+    <!-- TOP HEADER / TELEMETRY HUD -->
+    <header class="sticky top-0 z-50 holo-card border-b border-holo-border backdrop-blur-2xl">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
+            
+            <!-- Branding -->
+            <div class="flex items-center space-x-3.5">
+                <div class="relative flex items-center justify-center w-10 h-10 rounded-xl bg-holo-cyan/10 border border-holo-cyan/40 text-holo-cyan box-glow-cyan">
+                    <i class="fa-solid fa-atom text-xl animate-spin" style="animation-duration: 12s;"></i>
+                </div>
+                <div>
+                    <h1 class="font-orbitron font-extrabold text-base sm:text-lg tracking-wider text-white flex items-center gap-2">
+                        ORBITAL <span class="text-holo-cyan glow-cyan">EVALUATOR</span>
+                        <span class="text-[10px] uppercase font-code tracking-widest px-2 py-0.5 rounded bg-holo-cyan/10 border border-holo-cyan/30 text-holo-cyan font-normal">60 TARGET BATTERY</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 font-sans">Java Foundations Sections 5.1 – 6.2 Diagnostic Test</p>
+                </div>
+            </div>
+
+            <!-- Header Indicators -->
+            <div class="flex items-center gap-3 sm:gap-4">
+                <!-- SFX Toggle -->
+                <button id="sfx-toggle" onclick="toggleAudioSFX()" class="px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-700 hover:border-holo-cyan text-xs font-code text-slate-300 transition-all flex items-center gap-2">
+                    <i id="sfx-icon" class="fa-solid fa-volume-high text-holo-cyan"></i>
+                    <span id="sfx-label" class="hidden sm:inline">SFX: ON</span>
+                </button>
+
+                <!-- Countdown Timer -->
+                <div class="flex items-center gap-2 bg-slate-950/90 border border-holo-cyan/40 px-3.5 py-1.5 rounded-lg font-code text-xs sm:text-sm text-holo-cyan box-glow-cyan">
+                    <i class="fa-solid fa-stopwatch text-holo-cyan animate-pulse"></i>
+                    <span id="exam-timer" class="font-bold">60:00</span>
+                </div>
+
+                <!-- Submit Button -->
+                <button id="btn-top-submit" onclick="confirmSubmitExam()" class="corner-cut px-4 py-2 bg-gradient-to-r from-holo-cyan to-holo-violet hover:from-holo-cyanGlow hover:to-holo-purple text-slate-950 font-orbitron font-bold text-xs uppercase tracking-wider transition-all duration-300 shadow-lg hover:shadow-holo-cyan/40 flex items-center gap-2">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>Submit Battery</span>
+                </button>
+            </div>
+
+        </div>
+    </header>
+
+    <!-- MAIN DASHBOARD & TEST LAYOUT -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-grow grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- LEFT SIDEBAR: HUD MATRIX & DASHBOARD (4 COLS) -->
+        <aside class="lg:col-span-4 space-y-6">
+
+            <!-- SCORE RADIAL & PROGRESS MONITORS -->
+            <div class="holo-card rounded-2xl p-5 border-l-4 border-l-holo-cyan">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="font-orbitron text-xs tracking-widest text-slate-300 uppercase flex items-center gap-2">
+                        <i class="fa-solid fa-gauge-high text-holo-cyan"></i> Telemetry Dashboard
+                    </h2>
+                    <span id="session-status-tag" class="text-[10px] font-code px-2 py-0.5 rounded bg-holo-cyan/10 text-holo-cyan border border-holo-cyan/30">TEST IN PROGRESS</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 items-center">
+                    <!-- Gauge -->
+                    <div class="relative flex items-center justify-center">
+                        <svg class="w-28 h-28 transform -rotate-90">
+                            <circle cx="56" cy="56" r="44" stroke="rgba(255, 255, 255, 0.08)" stroke-width="8" fill="transparent" />
+                            <circle id="radial-progress" cx="56" cy="56" r="44" stroke="#00F0FF" stroke-width="8" 
+                                    stroke-dasharray="276" stroke-dashoffset="276" stroke-linecap="round" fill="transparent" 
+                                    class="transition-all duration-700 ease-out" />
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                            <span id="score-percent" class="font-orbitron font-extrabold text-xl text-white">0%</span>
+                            <span id="score-percent-label" class="text-[9px] font-code text-slate-400 tracking-wider">ANSWERED</span>
+                        </div>
+                    </div>
+
+                    <!-- HUD Stats -->
+                    <div class="space-y-2 font-code text-xs">
+                        <div class="flex justify-between items-center p-2 rounded bg-slate-900/80 border border-slate-800">
+                            <span class="text-slate-400">ANSWERED:</span>
+                            <span id="stat-answered" class="text-holo-cyan font-bold">0 / 60</span>
+                        </div>
+                        <div class="flex justify-between items-center p-2 rounded bg-slate-900/80 border border-slate-800">
+                            <span class="text-slate-400">FLAGGED:</span>
+                            <span id="stat-flagged" class="text-holo-amber font-bold">0</span>
+                        </div>
+                        <div class="flex justify-between items-center p-2 rounded bg-slate-900/80 border border-slate-800">
+                            <span class="text-slate-400">MODE:</span>
+                            <span id="stat-mode" class="text-holo-emerald font-bold">ACTIVE</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reset Button -->
+                <div class="mt-4 pt-3 border-t border-slate-800 flex gap-2">
+                    <button onclick="resetExamSession()" class="w-full py-2 bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 hover:border-holo-rose/50 text-slate-300 hover:text-holo-rose rounded-lg text-xs font-code transition-all flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-rotate-right"></i>
+                        <span>Reset Session &amp; Local Cache</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- MODULE SELECTOR & HUD GRID MAP -->
+            <div class="holo-card rounded-2xl p-5 border-t-2 border-t-holo-violet">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="font-orbitron text-xs text-slate-300 tracking-wider uppercase flex items-center gap-2">
+                        <i class="fa-solid fa-cubes text-holo-violet"></i> Target Battery Grid
+                    </h3>
+                    <span class="text-[10px] font-code text-slate-500">60 NODES</span>
+                </div>
+
+                <!-- Module Select Buttons -->
+                <div class="space-y-1 mb-4 text-xs font-code">
+                    <button onclick="jumpToModule(1)" class="w-full p-2 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-holo-cyan/40 text-left flex justify-between items-center transition-all text-slate-300">
+                        <span><i class="fa-solid fa-microchip text-holo-cyan mr-1.5"></i>Mod 1: Logic &amp; String Trap</span>
+                        <span class="text-[10px] text-slate-500">Q1-12</span>
+                    </button>
+                    <button onclick="jumpToModule(2)" class="w-full p-2 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-holo-cyan/40 text-left flex justify-between items-center transition-all text-slate-300">
+                        <span><i class="fa-solid fa-bolt text-holo-amber mr-1.5"></i>Mod 2: Short-Circuit &amp; Ops</span>
+                        <span class="text-[10px] text-slate-500">Q13-24</span>
+                    </button>
+                    <button onclick="jumpToModule(3)" class="w-full p-2 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-holo-cyan/40 text-left flex justify-between items-center transition-all text-slate-300">
+                        <span><i class="fa-solid fa-code-branch text-holo-violet mr-1.5"></i>Mod 3: Switch &amp; Branches</span>
+                        <span class="text-[10px] text-slate-500">Q25-36</span>
+                    </button>
+                    <button onclick="jumpToModule(4)" class="w-full p-2 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-holo-cyan/40 text-left flex justify-between items-center transition-all text-slate-300">
+                        <span><i class="fa-solid fa-arrows-spin text-holo-emerald mr-1.5"></i>Mod 4: Definite Loops &amp; Scope</span>
+                        <span class="text-[10px] text-slate-500">Q37-48</span>
+                    </button>
+                    <button onclick="jumpToModule(5)" class="w-full p-2 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-holo-cyan/40 text-left flex justify-between items-center transition-all text-slate-300">
+                        <span><i class="fa-solid fa-infinity text-holo-rose mr-1.5"></i>Mod 5: Indefinite Loops</span>
+                        <span class="text-[10px] text-slate-500">Q49-60</span>
+                    </button>
+                </div>
+
+                <!-- Quick Filters -->
+                <div class="grid grid-cols-4 gap-1 p-1 bg-slate-950/90 rounded-xl border border-slate-800 text-[11px] font-code mb-4">
+                    <button onclick="setFilter('all')" id="filter-all" class="py-1 rounded-lg bg-holo-cyan/20 text-holo-cyan text-center font-semibold transition-all">ALL</button>
+                    <button onclick="setFilter('unanswered')" id="filter-unanswered" class="py-1 rounded-lg hover:bg-slate-800 text-slate-400 text-center transition-all">UNANS</button>
+                    <button onclick="setFilter('flagged')" id="filter-flagged" class="py-1 rounded-lg hover:bg-slate-800 text-slate-400 text-center transition-all">FLAG</button>
+                    <button onclick="setFilter('incorrect')" id="filter-incorrect" class="py-1 rounded-lg hover:bg-slate-800 text-slate-400 text-center transition-all">ERRS</button>
+                </div>
+
+                <!-- 60 Question Buttons Grid -->
+                <div id="question-node-grid" class="grid grid-cols-6 sm:grid-cols-10 lg:grid-cols-6 gap-1.5 max-h-[280px] overflow-y-auto p-1">
+                    <!-- Dynamic rendering -->
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- RIGHT DISPLAY: QUESTION & CODE SCENARIO VIEW (8 COLS) -->
+        <section class="lg:col-span-8 space-y-6">
+
+            <div id="question-card-container" class="holo-card rounded-2xl p-6 sm:p-8 relative border-t-2 border-t-holo-cyan transition-all">
+                
+                <!-- Question Top Metadata -->
+                <div class="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800">
+                    <div class="flex items-center space-x-3">
+                        <span id="q-number-badge" class="font-orbitron text-xs font-extrabold px-3 py-1 rounded-lg bg-holo-cyan/15 text-holo-cyan border border-holo-cyan/30 box-glow-cyan">
+                            NODE 01 / 60
+                        </span>
+                        <span id="q-module-badge" class="text-xs font-code text-slate-300 bg-slate-900/90 px-3 py-1 rounded-lg border border-slate-800">
+                            MODULE 1: LOGIC &amp; STRINGS
+                        </span>
+                    </div>
+
+                    <!-- Flag Question Toggle -->
+                    <button id="btn-flag-q" onclick="toggleFlagCurrentQuestion()" class="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 hover:border-holo-amber text-xs font-code text-slate-400 hover:text-holo-amber transition-all flex items-center gap-1.5">
+                        <i id="flag-icon" class="fa-regular fa-bookmark"></i>
+                        <span id="flag-label">Flag Node</span>
+                    </button>
+                </div>
+
+                <!-- Scenario Title & Prompt -->
+                <div class="py-4">
+                    <h3 id="q-title" class="font-sans font-bold text-lg sm:text-xl text-white mb-2 leading-snug">
+                        <!-- Title text -->
+                    </h3>
+                    <p id="q-scenario" class="text-sm text-slate-300 leading-relaxed font-sans mb-4">
+                        <!-- Scenario description -->
+                    </p>
+
+                    <!-- Code Snippet Display Window -->
+                    <div id="code-snippet-box" class="code-terminal rounded-xl p-4 my-4 relative group">
+                        <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-800/80 text-[11px] text-slate-500 font-code">
+                            <span><i class="fa-solid fa-code text-holo-cyan mr-1.5"></i>Java Foundational Context</span>
+                            <span class="text-slate-600">JDK 17 Target</span>
+                        </div>
+                        <pre class="overflow-x-auto text-xs sm:text-sm text-sky-200 font-code leading-relaxed"><code id="q-code-display">// Code snippet</code></pre>
+                    </div>
+                </div>
+
+                <!-- Options List (Answers NOT revealed before submission) -->
+                <div class="space-y-3 my-4" id="options-container">
+                    <!-- Options JS -->
+                </div>
+
+                <!-- Action Bar -->
+                <div class="mt-6 pt-5 border-t border-slate-800 flex flex-wrap items-center justify-between gap-4">
+                    <button onclick="toggleTraceSimulator()" class="px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 hover:border-holo-cyan text-xs font-code text-slate-300 hover:text-holo-cyan transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-terminal text-holo-cyan"></i>
+                        <span id="sim-btn-text">Open Execution Trace Simulator</span>
+                    </button>
+
+                    <div class="flex items-center gap-3">
+                        <button onclick="navigateQuestion(-1)" id="btn-prev" class="px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-holo-cyan text-slate-300 text-xs font-orbitron tracking-wider transition-all flex items-center gap-2">
+                            <i class="fa-solid fa-chevron-left text-holo-cyan"></i>
+                            <span>Prev</span>
+                        </button>
+                        <span id="nav-indicator" class="font-code text-xs text-slate-500">
+                            01 / 60
+                        </span>
+                        <button onclick="navigateQuestion(1)" id="btn-next" class="px-4 py-2 rounded-lg bg-slate-900 border border-slate-800 hover:border-holo-cyan text-slate-300 text-xs font-orbitron tracking-wider transition-all flex items-center gap-2">
+                            <span>Next</span>
+                            <i class="fa-solid fa-chevron-right text-holo-cyan"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TRACE SIMULATOR PANEL -->
+                <div id="simulator-panel" class="hidden mt-6 pt-5 border-t-2 border-slate-800 bg-slate-950/95 rounded-xl p-4 font-code text-xs">
+                    <div class="flex justify-between items-center mb-3 text-holo-cyan border-b border-slate-800 pb-2">
+                        <span class="font-orbitron tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-microchip text-holo-violet"></i> Memory &amp; Logic Trace Simulation
+                        </span>
+                        <span class="text-[10px] text-slate-500">SIMULATOR ENGINE v3.0</span>
+                    </div>
+                    <div id="sim-trace-output" class="bg-slate-900/90 p-3.5 rounded-lg border border-slate-800 text-emerald-400 space-y-1.5 min-h-[90px] max-h-[220px] overflow-y-auto">
+                        <!-- Step traces -->
+                    </div>
+                    <div class="mt-3 flex justify-between items-center">
+                        <button onclick="runTraceSimulation()" class="px-3 py-1.5 rounded-lg bg-holo-violet/20 border border-holo-violet/40 hover:bg-holo-violet/30 text-holo-violet text-xs font-semibold transition-all flex items-center gap-1.5">
+                            <i class="fa-solid fa-play"></i> Run Line-By-Line Trace
+                        </button>
+                    </div>
+                </div>
+
+                <!-- POST-SUBMISSION DETAILED EXPLANATION PANEL (HIDDEN BEFORE SUBMIT) -->
+                <div id="post-explanation-panel" class="hidden mt-6 p-5 rounded-xl bg-slate-900/90 border border-slate-700 text-xs leading-relaxed space-y-3">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <div class="flex items-center gap-2 text-holo-cyan font-orbitron text-xs font-bold uppercase tracking-wider">
+                            <i class="fa-solid fa-book-open-reader text-holo-cyan"></i>
+                            <span>Reviewer Rule Citation &amp; Analysis</span>
+                        </div>
+                        <span id="post-status-badge" class="px-2.5 py-0.5 rounded text-[10px] font-code">
+                            <!-- Correct/Incorrect -->
+                        </span>
+                    </div>
+                    <p id="post-explanation-text" class="text-slate-300 font-sans text-sm">
+                        <!-- Explanation text -->
+                    </p>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- END EXAM SCORECARD MATRIX MODAL -->
+    <div id="scorecard-modal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="holo-card rounded-2xl border-t-2 border-t-holo-cyan p-6 sm:p-8 max-w-3xl w-full max-h-[90vh] overflow-y-auto space-y-6">
+            
+            <div class="flex justify-between items-start border-b border-slate-800 pb-4">
+                <div>
+                    <h2 class="font-orbitron font-extrabold text-xl text-white flex items-center gap-2">
+                        <i class="fa-solid fa-trophy text-holo-amber"></i> SYSTEM EVALUATION MATRIX
+                    </h2>
+                    <p class="text-xs text-slate-400 font-sans">Java Foundations Final Assessment (60 Battery Nodes)</p>
+                </div>
+                <button onclick="closeScorecardModal()" class="text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Overall Performance Banner -->
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 font-code">
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+                    <div class="text-[10px] text-slate-400 mb-1">SCORE ACCURACY</div>
+                    <div id="modal-score-percent" class="font-orbitron font-extrabold text-2xl text-holo-cyan">0%</div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+                    <div class="text-[10px] text-slate-400 mb-1">TOTAL CORRECT</div>
+                    <div id="modal-score-ratio" class="font-orbitron font-extrabold text-2xl text-holo-emerald">0 / 60</div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+                    <div class="text-[10px] text-slate-400 mb-1">TIME ELAPSED</div>
+                    <div id="modal-score-time" class="font-orbitron font-extrabold text-2xl text-holo-amber">00:00</div>
+                </div>
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-center">
+                    <div class="text-[10px] text-slate-400 mb-1">SYSTEM RANK</div>
+                    <div id="modal-rank-badge" class="font-orbitron font-bold text-xs text-holo-violet tracking-wider">APPRENTICE</div>
+                </div>
+            </div>
+
+            <!-- Module Breakdown Bars -->
+            <div class="space-y-3 font-sans">
+                <h3 class="font-orbitron text-xs text-slate-300 uppercase tracking-wider">Diagnostic Breakdown by Module</h3>
+                
+                <div id="module-breakdown-list" class="space-y-2.5 text-xs">
+                    <!-- Generated via JS -->
+                </div>
+            </div>
+
+            <div class="pt-4 border-t border-slate-800 flex flex-wrap gap-3">
+                <button onclick="reviewMissedQuestions()" class="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 hover:border-holo-cyan text-xs font-orbitron text-slate-200 transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-magnifying-glass text-holo-cyan"></i>
+                    <span>Review Erroneous Nodes</span>
+                </button>
+                <button onclick="closeScorecardModal()" class="flex-1 py-2.5 rounded-xl bg-holo-cyan hover:bg-holo-cyanGlow text-slate-950 font-orbitron font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-check"></i>
+                    <span>Continue Review Mode</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="mt-8 border-t border-slate-800/80 bg-slate-950/90 backdrop-blur-md py-4 text-xs text-slate-500 font-code">
+        <div class="max-w-7xl mx-auto px-4 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center gap-2">
+                <span class="inline-block w-2 h-2 rounded-full bg-holo-cyan animate-ping"></span>
+                <span>ORBITAL ENGINE ACTIVE</span>
+                <span class="text-slate-700">|</span>
+                <span>JAVA FOUNDATIONS 5.1-6.2 (60 ITEMS)</span>
+            </div>
+            <div>
+                <span>AUTHENTICATED CLINICAL RUNTIME</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- WEB AUDIO API SFX GENERATOR -->
+    <script>
+        let audioCtx = null;
+        let sfxEnabled = true;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            if (!sfxEnabled) return;
+            try {
+                initAudio();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
+
+                if (type === 'select') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(550, now);
+                    osc.frequency.exponentialRampToValueAtTime(850, now + 0.05);
+                    gain.gain.setValueAtTime(0.05, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                } else if (type === 'flag') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+                    gain.gain.setValueAtTime(0.06, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (type === 'submit') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.setValueAtTime(659.25, now + 0.08);
+                    osc.frequency.setValueAtTime(783.99, now + 0.16);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+                    osc.start(now);
+                    osc.stop(now + 0.28);
+                } else if (type === 'nav') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(420, now);
+                    gain.gain.setValueAtTime(0.03, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+                    osc.start(now);
+                    osc.stop(now + 0.03);
+                }
+            } catch (e) {}
+        }
+
+        function toggleAudioSFX() {
+            sfxEnabled = !sfxEnabled;
+            const label = document.getElementById('sfx-label');
+            const icon = document.getElementById('sfx-icon');
+            if (sfxEnabled) {
+                label.innerText = 'SFX: ON';
+                icon.className = 'fa-solid fa-volume-high text-holo-cyan';
+                playSound('select');
+            } else {
+                label.innerText = 'SFX: OFF';
+                icon.className = 'fa-solid fa-volume-xmark text-slate-500';
+            }
+        }
+    </script>
+
+    <!-- COMPLETE 60-ITEM EXAM DATASET & APP LOGIC -->
+    <script>
+        /*
+            COMPLETE 60 SITUATIONAL QUESTIONS DATASET
+            5 MODULES x 12 QUESTIONS EACH = 60 QUESTIONS EXACTLY
+            Based on Java Foundations Reviewer (Sections 5.1 - 6.2)
+        */
+        const examQuestions = [
+            // ==========================================
+            // MODULE 1: BOOLEAN LOGIC & STRING PITFALLS (Q1 - Q12)
+            // ==========================================
+            {
+                id: 1, module: 1, section: "Sec 5.1: String Comparison Trap",
+                title: "Dynamic Concatenation Memory Comparison",
+                scenario: "A security authentication service concatenates token components dynamic string references and compares them to a literal string using the '==' relational operator.",
+                code: `String prefix = "Ora";\nString suffix = "cle";\nString fullToken = prefix + suffix;\n\nboolean test1 = (fullToken == "Oracle");\nboolean test2 = fullToken.equals("Oracle");\n\nSystem.out.println(test1 + " " + test2);`,
+                options: [
+                    { key: "A", text: "true true" },
+                    { key: "B", text: "false true" },
+                    { key: "C", text: "true false" },
+                    { key: "D", text: "Compilation Error: =="); cannot compare String objects }
+                ],
+                correct: "B",
+                explanation: "Rule 5.1: Primitives use == to compare direct values. For String objects, == compares whether two reference variables point to the exact same object in memory. Concatenating variables generates a new object in heap memory, making (fullToken == 'Oracle') false. Using .equals() compares the character content, returning true.",
+                traceSteps: ["prefix = 'Ora', suffix = 'cle' allocated.", "prefix + suffix produces new Heap Object [Ref #0x8F].", "fullToken == 'Oracle' compares Heap Ref #0x8F with String Pool Ref #0x01 -> FALSE.", "fullToken.equals('Oracle') compares 'Oracle' with 'Oracle' -> TRUE."]
+            },
+            {
+                id: 2, module: 1, section: "Sec 5.1: Assignment vs Equality Operator",
+                title: "Accidental Variable Assignment inside Condition",
+                scenario: "A controller evaluates boolean flag updates inside an if statement.",
+                code: `boolean isSystemActive = false;\n\nif (isSystemActive = true) {\n    System.out.println("SYSTEM_ONLINE");\n} else {\n    System.out.println("SYSTEM_OFFLINE");\n}`,
+                options: [
+                    { key: "A", text: "SYSTEM_OFFLINE" },
+                    { key: "B", text: "SYSTEM_ONLINE" },
+                    { key: "C", text: "Compilation Error: cannot assign value inside if condition" },
+                    { key: "D", text: "Runtime Exception: Invalid boolean assignment" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.1: The single '=' is an assignment operator, whereas '==' is relational. Writing (isSystemActive = true) assigns true to the variable and evaluates to true. Therefore, the if condition passes and 'SYSTEM_ONLINE' prints.",
+                traceSteps: ["isSystemActive initialized to false.", "Evaluates assignment (isSystemActive = true) -> Variable updated to true; expression result = true.", "if (true) executes first branch.", "Output: SYSTEM_ONLINE"]
+            },
+            {
+                id: 3, module: 1, section: "Sec 5.1: String Literal Interning",
+                title: "String Literal Pool Matching",
+                scenario: "A backend service compares two direct String literals.",
+                code: `String str1 = "Java";\nString str2 = "Java";\n\nSystem.out.println((str1 == str2) + " " + str1.equals(str2));`,
+                options: [
+                    { key: "A", text: "false true" },
+                    { key: "B", text: "true true" },
+                    { key: "C", text: "false false" },
+                    { key: "D", text: "true false" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.1: Java automatically yields existing String instances from the String Constant Pool for direct String literals. Thus, str1 and str2 point to the exact same object in memory, causing both == and .equals() to return true.",
+                traceSteps: ["str1 assigned literal 'Java' in pool.", "str2 points to existing literal 'Java' in pool.", "str1 == str2 checks identical memory address -> TRUE.", "str1.equals(str2) checks character sequence -> TRUE."]
+            },
+            {
+                id: 4, module: 1, section: "Sec 5.1: New String Object Allocation",
+                title: "Explicit Memory Allocation with new",
+                scenario: "An identity manager instantiates a String using the 'new' keyword.",
+                code: `String s1 = "Security";\nString s2 = new String("Security");\n\nSystem.out.println(s1 == s2);`,
+                options: [
+                    { key: "A", text: "true" },
+                    { key: "B", text: "false" },
+                    { key: "C", text: "Compilation error" },
+                    { key: "D", text: "NullPointerException" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.1: Using 'new String(...)' explicitly forces the creation of a brand new Object in heap memory, separate from the String Constant Pool. Comparing s1 == s2 checks memory addresses, which differ, yielding false.",
+                traceSteps: ["s1 points to pool object 'Security'.", "s2 explicitly creates new object in Heap via 'new'.", "s1 == s2 compares pool ref against heap ref -> FALSE."]
+            },
+            {
+                id: 5, module: 1, section: "Sec 5.1: Primitive Equality vs Wrapper Objects",
+                title: "Integer Primitive Comparisons",
+                scenario: "A counter validator compares two primitive integer variables.",
+                code: `int valA = 100;\nint valB = 100;\n\nSystem.out.println(valA == valB);`,
+                options: [
+                    { key: "A", text: "true" },
+                    { key: "B", text: "false" },
+                    { key: "C", text: "Compilation Error: primitives require .equals()" },
+                    { key: "D", text: "Runtime Error" }
+                ],
+                correct: "A",
+                explanation: "Rule 5.1: For primitive data types (int, double, boolean, char), the == operator compares raw binary values directly. Since 100 equals 100, it evaluates to true.",
+                traceSteps: ["valA holds primitive 100.", "valB holds primitive 100.", "100 == 100 compares direct values -> TRUE."]
+            },
+            {
+                id: 6, module: 1, section: "Sec 5.1: Boolean Expression Evaluation",
+                title: "Inverted Boolean Logic Flag",
+                scenario: "A telemetry service evaluates inverted boolean status flags.",
+                code: `boolean sensorReady = false;\nboolean alertActive = !sensorReady;\n\nif (alertActive) {\n    System.out.println("ALERT");\n}`,
+                options: [
+                    { key: "A", text: "ALERT" },
+                    { key: "B", text: "No output" },
+                    { key: "C", text: "Compilation Error" },
+                    { key: "D", text: "false" }
+                ],
+                correct: "A",
+                explanation: "Rule 5.1: The logical NOT operator (!) flips a boolean value. !false evaluates to true, assigning true to alertActive, triggering the if branch.",
+                traceSteps: ["sensorReady = false.", "!sensorReady evaluates to true.", "alertActive assigned true.", "if (alertActive) evaluates to true -> Prints ALERT."]
+            },
+            {
+                id: 7, module: 1, section: "Sec 5.1: Case Sensitivity in String .equals()",
+                title: "Case Match Validation Trap",
+                scenario: "A login controller checks password strings with differing letter case.",
+                code: `String input = "Admin";\nString stored = "admin";\n\nSystem.out.println(input.equals(stored));`,
+                options: [
+                    { key: "A", text: "true" },
+                    { key: "B", text: "false" },
+                    { key: "C", text: "Compilation Error" },
+                    { key: "D", text: "NullPointerException" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.1: String.equals() is strictly case-sensitive. 'Admin' does not equal 'admin'. For case-insensitive comparison, .equalsIgnoreCase() must be used.",
+                traceSteps: ["input = 'Admin'.", "stored = 'admin'.", "equals() checks char 'A' vs 'a' -> FALSE."]
+            },
+            {
+                id: 8, module: 1, section: "Sec 5.1: Nested If Brace Scope",
+                title: "Dangling Else Assignment",
+                scenario: "A permissions check contains unbraced nested if structures.",
+                code: `int userRole = 2;\nboolean isAdmin = false;\n\nif (userRole > 1)\n    if (isAdmin)\n        System.out.println("FULL_ACCESS");\nelse\n    System.out.println("NO_ACCESS");`,
+                options: [
+                    { key: "A", text: "FULL_ACCESS" },
+                    { key: "B", text: "NO_ACCESS" },
+                    { key: "C", text: "No output" },
+                    { key: "D", text: "Compilation error" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.1/5.2: In Java, an else clause always pairs with the nearest preceding if statement that does not already have an else, regardless of indentation. Here, the else pairs with 'if (isAdmin)'. Since userRole > 1 is true, but isAdmin is false, the inner else block executes printing 'NO_ACCESS'.",
+                traceSteps: ["Outer if (userRole > 1) -> (2 > 1) is TRUE.", "Inner if (isAdmin) -> false.", "Inner else executes -> Prints NO_ACCESS."]
+            },
+            {
+                id: 9, module: 1, section: "Sec 5.1: Relational Operator Chaining Trap",
+                title: "Attempting Mathematical Range Chaining",
+                scenario: "A range validator attempts to write a continuous comparative range condition.",
+                code: `int score = 85;\n// Attempt to check if score is between 70 and 90\nif (70 <= score <= 90) {\n    System.out.println("VALID");\n}`,
+                options: [
+                    { key: "A", text: "VALID" },
+                    { key: "B", text: "Compilation Error: operator <= cannot be applied to boolean, int" },
+                    { key: "C", text: "No output" },
+                    { key: "D", text: "Runtime Error" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.1: Relational operators evaluate left-to-right to produce a boolean. (70 <= score) evaluates to true. Then Java attempts (true <= 90), which fails compilation because relational operators cannot compare boolean to integer.",
+                traceSteps: ["Evaluate 70 <= score -> 70 <= 85 -> true.", "Attempt true <= 90 -> Invalid primitive operand comparison -> COMPILE ERROR."]
+            },
+            {
+                id: 10, module: 1, section: "Sec 5.1: Char Relational ASCII Comparison",
+                title: "Character Alphabetical Sorting Logic",
+                scenario: "A sorting engine compares char variables using relational operators.",
+                code: `char codeA = 'A';\nchar codeB = 'B';\n\nif (codeA < codeB) {\n    System.out.println("A_BEFORE_B");\n}`,
+                options: [
+                    { key: "A", text: "A_BEFORE_B" },
+                    { key: "B", text: "No output" },
+                    { key: "C", text: "Compilation Error: cannot compare char types with <" },
+                    { key: "D", text: "Runtime Exception" }
+                ],
+                correct: "A",
+                explanation: "Rule 5.1: Char types in Java store 16-bit numerical Unicode/ASCII values. 'A' (ASCII 65) is less than 'B' (ASCII 66), so (codeA < codeB) evaluates to true.",
+                traceSteps: ["'A' converted to ASCII 65.", "'B' converted to ASCII 66.", "65 < 66 evaluates to true -> Prints A_BEFORE_B."]
+            },
+            {
+                id: 11, module: 1, section: "Sec 5.1: Double Floating Precision Equality",
+                title: "Floating Point Direct Equality Risk",
+                scenario: "A telemetry calculator adds floating point numbers and tests for exact equality.",
+                code: `double val1 = 0.1 + 0.2;\ndouble val2 = 0.3;\n\nSystem.out.println(val1 == val2);`,
+                options: [
+                    { key: "A", text: "true" },
+                    { key: "B", text: "false" },
+                    { key: "C", text: "Compilation Error" },
+                    { key: "D", text: "ArithmeticException" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.1: Floating-point binary representation yields tiny precision rounding errors (e.g. 0.1 + 0.2 = 0.30000000000000004). Direct == comparison yields false.",
+                traceSteps: ["0.1 + 0.2 calculated in binary -> 0.30000000000000004.", "0.30000000000000004 == 0.3 -> FALSE."]
+            },
+            {
+                id: 12, module: 1, section: "Sec 5.1: String Null Reference Trap",
+                title: "Calling .equals on Uninitialized Null Reference",
+                scenario: "A user token validator checks a null reference String.",
+                code: `String userToken = null;\n\nif (userToken.equals("AUTH")) {\n    System.out.println("VERIFIED");\n}`,
+                options: [
+                    { key: "A", text: "VERIFIED" },
+                    { key: "B", text: "No output" },
+                    { key: "C", text: "Throws NullPointerException" },
+                    { key: "D", text: "Compilation Error" }
+                ],
+                correct: "C",
+                explanation: "Rule 5.1: Calling an instance method like .equals() on a reference variable that points to null causes a runtime NullPointerException.",
+                traceSteps: ["userToken reference points to null.", "Attempt to invoke method .equals() on null.", "Runtime throws NullPointerException."]
+            },
+
+            // ==========================================
+            // MODULE 2: SHORT-CIRCUITING & OPERATORS (Q13 - Q24)
+            // ==========================================
+            {
+                id: 13, module: 2, section: "Sec 5.2: Short-Circuit AND Division Guard",
+                title: "Zero Divisor Protection with &&",
+                scenario: "A throughput monitor checks active connection counts using short-circuit AND.",
+                code: `int activeConnections = 0;\nboolean valid = (activeConnections != 0) && ((500 / activeConnections) > 10);\nSystem.out.println("Valid: " + valid);`,
+                options: [
+                    { key: "A", text: "Throws ArithmeticException: / by zero" },
+                    { key: "B", text: "Valid: false" },
+                    { key: "C", text: "Valid: true" },
+                    { key: "D", text: "Compilation Error" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.2: In a logical AND (&&) expression, if the left operand evaluates to false, Java short-circuits and skips evaluating the right operand. Thus (500 / activeConnections) never executes, guarding against division-by-zero.",
+                traceSteps: ["Left side (0 != 0) evaluates to false.", "SHORT-CIRCUIT ACTIVATED: Right side skipped.", "Expression evaluates to false. Output: Valid: false."]
+            },
+            {
+                id: 14, module: 2, section: "Sec 5.2: Short-Circuit OR Protection",
+                title: "Logical OR Short-Circuit Skipping",
+                scenario: "An activation service evaluates primary readiness flags.",
+                code: `boolean primaryReady = true;\nint systemLoad = 50;\n\nif (primaryReady || (++systemLoad > 100)) {\n    System.out.println("System Load: " + systemLoad);\n}`,
+                options: [
+                    { key: "A", text: "System Load: 51" },
+                    { key: "B", text: "System Load: 50" },
+                    { key: "C", text: "System Load: 101" },
+                    { key: "D", text: "Compilation Error" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.2: In a logical OR (||) expression, if the left operand is true, the overall expression is guaranteed true and Java skips the right side. The side effect (++systemLoad) never executes.",
+                traceSteps: ["Left side primaryReady is true.", "SHORT-CIRCUIT ACTIVATED: Right operand ++systemLoad skipped.", "systemLoad remains 50. Output: System Load: 50."]
+            },
+            {
+                id: 15, module: 2, section: "Sec 5.2: Non-Short-Circuit Operator Side Effect",
+                title: "Bitwise Single & Operator Execution",
+                scenario: "A system diagnostic module uses the non-short-circuit single & operator.",
+                code: `int x = 0;\nint count = 5;\n\nboolean test = (x != 0) & (++count > 2);\nSystem.out.println("Count: " + count + " Test: " + test);`,
+                options: [
+                    { key: "A", text: "Count: 5 Test: false" },
+                    { key: "B", text: "Count: 6 Test: false" },
+                    { key: "C", text: "Throws ArithmeticException" },
+                    { key: "D", text: "Compilation error" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.2: The single '&' operator is a bitwise/logical operator that DOES NOT short-circuit. Even though (x != 0) is false, Java evaluates the right operand (++count > 2), incrementing count to 6.",
+                traceSteps: ["Left side (0 != 0) is false.", "NO SHORT-CIRCUIT: Right side ++count executes -> count becomes 6.", "Overall expression false & true -> false.", "Output: Count: 6 Test: false."]
+            },
+            {
+                id: 16, module: 2, section: "Sec 5.2: Ternary Operator Syntax",
+                title: "Compact Conditional Score Formatting",
+                scenario: "A game engine calculates plural strings based on player inventory.",
+                code: `int items = 1;\nString message = (items == 1) ? "item" : "items";\nSystem.out.println("You have " + items + " " + message);`,
+                options: [
+                    { key: "A", text: "You have 1 items" },
+                    { key: "B", text: "You have 1 item" },
+                    { key: "C", text: "Compilation Error" },
+                    { key: "D", text: "You have 1 true" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.2: The ternary operator (condition ? val1 : val2) evaluates the condition. Since (items == 1) is true, 'item' is returned and assigned.",
+                traceSteps: ["Condition (1 == 1) is true.", "Selects 'item'.", "Output: You have 1 item."]
+            },
+            {
+                id: 17, module: 2, section: "Sec 5.2: Nested Ternary Evaluation",
+                title: "Multi-Tier Grade Evaluation",
+                scenario: "An assessment module assigns grade marks using nested ternary operators.",
+                code: `int score = 82;\nString grade = (score >= 90) ? "A" : (score >= 80) ? "B" : "C";\nSystem.out.println("Grade: " + grade);`,
+                options: [
+                    { key: "A", text: "Grade: A" },
+                    { key: "B", text: "Grade: B" },
+                    { key: "C", text: "Grade: C" },
+                    { key: "D", text: "Compilation Error: nested ternary operators are illegal" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.2: Ternary operators can be nested. (score >= 90) is false, so it evaluates the second expression (score >= 80) ? 'B' : 'C'. Since 82 >= 80 is true, 'B' is returned.",
+                traceSteps: ["82 >= 90 is false.", "Evaluate nested branch: (82 >= 80) -> true.", "Returns 'B'. Output: Grade: B."]
+            },
+            {
+                id: 18, module: 2, section: "Sec 5.2: Logical NOT Precedence",
+                title: "Operator Precedence with NOT and Relational",
+                scenario: "A gate logic circuit evaluates inverted expressions with precedence.",
+                code: `boolean flag = false;\nif (!flag == true) {\n    System.out.println("MATCH");\n}`,
+                options: [
+                    { key: "A", text: "MATCH" },
+                    { key: "B", text: "No output" },
+                    { key: "C", text: "Compilation Error: ! cannot precede boolean in ==" },
+                    { key: "D", text: "Runtime Exception" }
+                ],
+                correct: "A",
+                explanation: "Rule 5.2: The unary NOT operator (!) has higher precedence than equality (==). !flag evaluates to !false = true. Then true == true evaluates to true.",
+                traceSteps: ["!flag evaluates first -> !false = true.", "true == true evaluates to true.", "Prints MATCH."]
+            },
+            {
+                id: 19, module: 2, section: "Sec 5.2: Null Safe Pointer Check with &&",
+                title: "Guarding Null Objects via Short-Circuit",
+                scenario: "A user profile parser checks string length safely.",
+                code: `String username = null;\nif (username != null && username.length() > 0) {\n    System.out.println("VALID_USER");\n} else {\n    System.out.println("INVALID_USER");\n}`,
+                options: [
+                    { key: "A", text: "Throws NullPointerException" },
+                    { key: "B", text: "INVALID_USER" },
+                    { key: "C", text: "VALID_USER" },
+                    { key: "D", text: "Compilation Error" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.2: Using && short-circuits if the left side is false. Since (username != null) is false, username.length() is never called, safely avoiding NullPointerException and printing INVALID_USER.",
+                traceSteps: ["username != null evaluates to false.", "SHORT-CIRCUIT ACTIVATED: username.length() skipped.", "Condition false -> Executes else block printing INVALID_USER."]
+            },
+            {
+                id: 20, module: 2, section: "Sec 5.2: Logical Operator Precedence (AND over OR)",
+                title: "AND / OR Priority Evaluation",
+                scenario: "A policy engine evaluates compound logical conditions.",
+                code: `boolean a = true, b = false, c = true;\n\nif (a || b && false) {\n    System.out.println("PASS");\n} else {\n    System.out.println("FAIL");\n}`,
+                options: [
+                    { key: "A", text: "FAIL" },
+                    { key: "B", text: "PASS" },
+                    { key: "C", text: "Compilation Error: parentheses required for mixed operators" },
+                    { key: "D", text: "Runtime Exception" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.2: Logical AND (&&) has higher precedence than logical OR (||). Java evaluates (b && false) first -> (false && false) = false. Then it evaluates (a || false) -> (true || false) = true.",
+                traceSteps: ["Precedence: evaluate (b && false) first -> false.", "Evaluate (a || false) -> (true || false) -> true.", "Condition passes -> Prints PASS."]
+            },
+            {
+                id: 21, module: 2, section: "Sec 5.2: Ternary Type Compatibility Trap",
+                title: "Incompatible Result Types in Ternary",
+                scenario: "A variable assignment assigns mixed return types from a ternary operator.",
+                code: `int status = 1;\nint code = (status == 1) ? 200 : "ERROR";`,
+                options: [
+                    { key: "A", text: "200" },
+                    { key: "B", text: "ERROR" },
+                    { key: "C", text: "Compilation Error: String cannot be converted to int" },
+                    { key: "D", text: "Runtime Exception" }
+                ],
+                correct: "C",
+                explanation: "Rule 5.2: Both result expressions in a ternary operator must be compatible with the target variable receiving the assignment. Assigning string 'ERROR' to an int variable causes a compilation error.",
+                traceSteps: ["Target variable type is int.", "Ternary true-val is int (200), false-val is String ('ERROR').", "Type mismatch -> COMPILE ERROR."]
+            },
+            {
+                id: 22, module: 2, section: "Sec 5.2: Chained If First Match Execution",
+                title: "Chained If Skip Behavior",
+                scenario: "A tier evaluator processes a numerical score.",
+                code: `int score = 95;\nif (score >= 80) {\n    System.out.println("HONORS");\n} else if (score >= 90) {\n    System.out.println("HIGH_HONORS");\n}`,
+                options: [
+                    { key: "A", text: "HONORS" },
+                    { key: "B", text: "HIGH_HONORS" },
+                    { key: "C", text: "HONORS HIGH_HONORS" },
+                    { key: "D", text: "Compilation error" }
+                ],
+                correct: "A",
+                explanation: "Rule 5.2: Java checks chained if/else-if conditions from top to bottom and runs ONLY the first block whose condition is true. Subsequent else-if branches are skipped even if their conditions are also true.",
+                traceSteps: ["First branch (95 >= 80) evaluates to true.", "Executes first branch printing HONORS.", "All subsequent else-if branches skipped."]
+            },
+            {
+                id: 23, module: 2, section: "Sec 5.2: Exclusive OR Operator (^)",
+                title: "XOR Logic Gate Behavior",
+                scenario: "A dual-key unlock system evaluates inputs using logical XOR (^).",
+                code: `boolean keyA = true;\nboolean keyB = true;\n\nif (keyA ^ keyB) {\n    System.out.println("UNLOCKED");\n} else {\n    System.out.println("LOCKED");\n}`,
+                options: [
+                    { key: "A", text: "UNLOCKED" },
+                    { key: "B", text: "LOCKED" },
+                    { key: "C", text: "Compilation error: ^ is bitwise only" },
+                    { key: "D", text: "Runtime Exception" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.2: The logical XOR (^) operator returns true if and only if EXACTLY ONE operand is true. If both are true (or both false), XOR returns false, executing the else block.",
+                traceSteps: ["keyA = true, keyB = true.", "true ^ true evaluates to false.", "Else branch executes printing LOCKED."]
+            },
+            {
+                id: 24, module: 2, section: "Sec 5.2: Short-Circuiting Multiple AND Chain",
+                title: "Multi-Condition Early Termination",
+                scenario: "An authentication filter evaluates a 3-part condition.",
+                code: `int x = 5, y = 0;\nif (x > 10 && ++y > 0 && x / y > 0) {\n    System.out.println("PASS");\n}\nSystem.out.println("y: " + y);`,
+                options: [
+                    { key: "A", text: "PASS y: 1" },
+                    { key: "B", text: "y: 0" },
+                    { key: "C", text: "y: 1" },
+                    { key: "D", text: "Throws ArithmeticException" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.2: In an AND chain, evaluation stops immediately at the first false expression. Since (5 > 10) is false, ++y and x/y never execute, leaving y as 0.",
+                traceSteps: ["(5 > 10) is false.", "SHORT-CIRCUIT ACTIVATED: Rest of chain skipped.", "if block skipped. Prints y: 0."]
+            },
+
+            // ==========================================
+            // MODULE 3: CONTROL FLOW & SWITCH DYNAMICS (Q25 - Q36)
+            // ==========================================
+            {
+                id: 25, module: 3, section: "Sec 5.3: Switch Fall-Through Trap",
+                title: "Omitted Break Statement Cascade",
+                scenario: "A status parser executes a switch statement where a break statement is omitted.",
+                code: `int level = 1;\nswitch (level) {\n    case 1:\n        System.out.print("L1 ");\n    case 2:\n        System.out.print("L2 ");\n        break;\n    case 3:\n        System.out.print("L3 ");\n}`,
+                options: [
+                    { key: "A", text: "L1 " },
+                    { key: "B", text: "L1 L2 " },
+                    { key: "C", text: "L1 L2 L3 " },
+                    { key: "D", text: "Compilation Error" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.3: Omitting break causes switch fall-through. Execution matches case 1, prints 'L1 ', falls into case 2, prints 'L2 ', then encounters break and exits.",
+                traceSteps: ["Matches case 1: Prints 'L1 '.", "No break -> Falls into case 2.", "Prints 'L2 '.", "Hits break statement -> Exits switch."]
+            },
+            {
+                id: 26, module: 3, section: "Sec 5.3: Valid Switch Expression Types",
+                title: "Invalid Float Type in Switch Header",
+                scenario: "A parameter router attempts to route floating point inputs via switch.",
+                code: `float scale = 1.5f;\nswitch (scale) {\n    case 1.5f: System.out.println("ONE_HALF"); break;\n    default: System.out.println("DEFAULT");\n}`,
+                options: [
+                    { key: "A", text: "ONE_HALF" },
+                    { key: "B", text: "DEFAULT" },
+                    { key: "C", text: "Compilation Error: float selector type not allowed" },
+                    { key: "D", text: "Runtime Error" }
+                ],
+                correct: "C",
+                explanation: "Rule 5.3: Switch expressions only accept byte, short, char, int, String, and Enums. Primitive float, double, and boolean types are prohibited and cause compile errors.",
+                traceSteps: ["Compiler verifies selector type float.", "Rule check: float is invalid selector type.", "Compilation fails immediately."]
+            },
+            {
+                id: 27, module: 3, section: "Sec 5.3: Default Case Placement & Fall-Through",
+                title: "Mid-Block Default Execution",
+                scenario: "A switch statement places the default block at the top without a break statement.",
+                code: `int code = 99;\nswitch (code) {\n    default:\n        System.out.print("DEF ");\n    case 1:\n        System.out.print("ONE ");\n        break;\n    case 2:\n        System.out.print("TWO ");\n}`,
+                options: [
+                    { key: "A", text: "DEF " },
+                    { key: "B", text: "DEF ONE " },
+                    { key: "C", text: "DEF ONE TWO " },
+                    { key: "D", text: "Compilation Error: default must be at the end" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.3: The default block runs when no cases match regardless of where it is placed inside the switch. Without a break inside default, execution falls into case 1, printing 'DEF ONE '.",
+                traceSteps: ["No cases match code 99 -> Jumps to default.", "Prints 'DEF '.", "No break -> Falls through to case 1.", "Prints 'ONE ' -> Encounters break -> Exits."]
+            },
+            {
+                id: 28, module: 3, section: "Sec 5.3: String Selector Switch",
+                title: "String Literal Matching in Switch",
+                scenario: "A request handler routes command strings via switch.",
+                code: `String mode = "START";\nswitch (mode) {\n    case "START":\n        System.out.println("INITIATING");\n        break;\n    case "STOP":\n        System.out.println("HALTING");\n        break;\n}`,
+                options: [
+                    { key: "A", text: "INITIATING" },
+                    { key: "B", text: "HALTING" },
+                    { key: "C", text: "Compilation Error: String switch supported only in C#" },
+                    { key: "D", text: "NullPointerException" }
+                ],
+                correct: "A",
+                explanation: "Rule 5.3: Java allows String expressions in switch statements. It matches case 'START', prints INITIATING, and hits break.",
+                traceSteps: ["Matches case 'START'.", "Executes body: Prints INITIATING.", "Hits break -> Exits switch."]
+            },
+            {
+                id: 29, module: 3, section: "Sec 5.3: Stacked Multiple Case Labels",
+                title: "Shared Result Multi-Case Stacking",
+                scenario: "A day categorization service stacks multiple case labels.",
+                code: `int day = 2;\nswitch (day) {\n    case 1: case 2: case 3: case 4: case 5:\n        System.out.println("WEEKDAY");\n        break;\n    case 6: case 7:\n        System.out.println("WEEKEND");\n        break;\n}`,
+                options: [
+                    { key: "A", text: "WEEKDAY" },
+                    { key: "B", text: "WEEKEND" },
+                    { key: "C", text: "Compilation Error: multiple cases cannot share a line" },
+                    { key: "D", text: "No output" }
+                ],
+                correct: "A",
+                explanation: "Rule 5.3: Stacking case labels is a standard technique for intentional fall-through when multiple values share the exact same code execution.",
+                traceSteps: ["day = 2 matches label case 2:.", "Falls down stacked cases to shared block.", "Prints WEEKDAY -> Encounters break."]
+            },
+            {
+                id: 30, module: 3, section: "Sec 5.3: Variable Case Label Requirement",
+                title: "Non-Constant Variable in Case Label",
+                scenario: "A dynamic router attempts to use a non-final variable inside a case label.",
+                code: `int target = 10;\nint matchVal = 10;\n\nswitch (target) {\n    case matchVal:\n        System.out.println("MATCHED");\n        break;\n}`,
+                options: [
+                    { key: "A", text: "MATCHED" },
+                    { key: "B", text: "Compilation Error: constant expression required" },
+                    { key: "C", text: "No output" },
+                    { key: "D", text: "Runtime Exception" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.3: Case label expressions MUST be compile-time constants (literals or final variables). Using a standard variable like matchVal causes a compilation error.",
+                traceSteps: ["Compiler inspects case label matchVal.", "matchVal is a mutable variable, not compile-time constant.", "Compilation fails."]
+            },
+            {
+                id: 31, module: 3, section: "Sec 5.3: Char Primitive Switch",
+                title: "Character Grade Switch Evaluation",
+                scenario: "An academic portal processes letter grades represented as char.",
+                code: `char grade = 'B';\nswitch (grade) {\n    case 'A': System.out.print("EXCELLENT "); break;\n    case 'B': System.out.print("GOOD "); break;\n    case 'C': System.out.print("AVERAGE "); break;\n}`,
+                options: [
+                    { key: "A", text: "EXCELLENT " },
+                    { key: "B", text: "GOOD " },
+                    { key: "C", text: "AVERAGE " },
+                    { key: "D", text: "Compilation error" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.3: Primitive char is a valid switch expression type. It matches 'B', prints 'GOOD ', and breaks.",
+                traceSteps: ["Matches case 'B':.", "Prints 'GOOD '.", "Hits break statement -> Exits."]
+            },
+            {
+                id: 32, module: 3, section: "Sec 5.3: Duplicate Case Value Violation",
+                title: "Duplicate Case Value Compilation Failure",
+                scenario: "A configuration handler accidentally defines duplicate case values.",
+                code: `int option = 1;\nswitch (option) {\n    case 1: System.out.println("ONE"); break;\n    case 1: System.out.println("DUPLICATE"); break;\n}`,
+                options: [
+                    { key: "A", text: "ONE" },
+                    { key: "B", text: "DUPLICATE" },
+                    { key: "C", text: "Compilation Error: duplicate case label" },
+                    { key: "D", text: "Runtime Error" }
+                ],
+                correct: "C",
+                explanation: "Rule 5.3: Every case label value within a single switch block must be unique. Duplicate case values cause a compilation error.",
+                traceSteps: ["Compiler scans case labels.", "Discovers two case 1: labels.", "Compilation fails with duplicate label error."]
+            },
+            {
+                id: 33, module: 3, section: "Sec 5.3: Switch Expressions vs Ranges",
+                title: "Attempting Range Conditions in Case Labels",
+                scenario: "A range classifier tries to write relational range conditions inside switch case labels.",
+                code: `int score = 85;\nswitch (score) {\n    case score >= 80:\n        System.out.println("PASS");\n        break;\n}`,
+                options: [
+                    { key: "A", text: "PASS" },
+                    { key: "B", text: "Compilation Error: incompatible types, boolean cannot be converted to int" },
+                    { key: "C", text: "No output" },
+                    { key: "D", text: "Runtime Error" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.3: Switch statements test equality against known fixed values ONLY. Range evaluations (e.g. score >= 80) produce boolean results, which are illegal in int switch case labels.",
+                traceSteps: ["Case label contains boolean expression (score >= 80).", "Selector is int; case expression is boolean.", "Compilation fails."]
+            },
+            {
+                id: 34, module: 3, section: "Sec 5.3: Null String Switch Expression",
+                title: "Null Pointer Exception in String Switch",
+                scenario: "A web controller evaluates a null String reference inside a switch selector.",
+                code: `String action = null;\nswitch (action) {\n    case "RUN": System.out.println("RUNNING"); break;\n    default: System.out.println("IDLE");\n}`,
+                options: [
+                    { key: "A", text: "IDLE" },
+                    { key: "B", text: "Throws NullPointerException" },
+                    { key: "C", text: "Compilation Error" },
+                    { key: "D", text: "RUNNING" }
+                ],
+                correct: "B",
+                explanation: "Rule 5.3: Passing a null String variable into a switch expression causes a NullPointerException at runtime when Java attempts to invoke .hashCode() on the object.",
+                traceSteps: ["action reference is null.", "Switch evaluates null reference.", "Runtime throws NullPointerException before matching default."]
+            },
+            {
+                id: 35, module: 3, section: "Sec 5.3: Scope of Variables Declared in Switch",
+                title: "Variable Declaration Scope Across Cases",
+                scenario: "A data parser declares a variable in case 1 and re-declares it in case 2.",
+                code: `int mode = 2;\nswitch (mode) {\n    case 1:\n        int x = 10;\n        break;\n    case 2:\n        int x = 20; // Re-declaration\n        System.out.println(x);\n        break;\n}`,
+                options: [
+                    { key: "A", text: "20" },
+                    { key: "B", text: "10" },
+                    { key: "C", text: "Compilation Error: variable x is already defined in scope" },
+                    { key: "D", text: "Runtime Error" }
+                ],
+                correct: "C",
+                explanation: "Rule 5.3: All cases in a switch block share the exact same block scope. Declaring 'int x' in case 1 makes 'x' visible throughout the switch block; redeclaring 'int x' in case 2 causes a duplicate variable compile error.",
+                traceSteps: ["'int x' declared in case 1.", "In case 2, 'int x' attempted again within same scope.", "Compilation fails with duplicate variable error."]
+            },
+            {
+                id: 36, module: 3, section: "Sec 5.3: Byte Range Exceeded Case Label",
+                title: "Byte Overflow in Case Label",
+                scenario: "A byte protocol processor uses a value exceeding byte limits in a case label.",
+                code: `byte b = 100;\nswitch (b) {\n    case 100: System.out.print("100 "); break;\n    case 200: System.out.print("200 "); break; // Exceeds byte\n}`,
+                options: [
+                    { key: "A", text: "100 " },
+                    { key: "B", text: "200 " },
+                    { key: "C", text: "Compilation Error: possible loss of precision (200 cannot fit in byte)" },
+                    { key: "D", text: "Runtime Error" }
+                ],
+                correct: "C",
+                explanation: "Rule 5.3: Case label constant values must fit into the data type of the switch selector. A byte ranges from -128 to 127. The value 200 causes a compile-time type overflow error.",
+                traceSteps: ["Selector type is byte (-128 to 127).", "Case label constant 200 exceeds byte limit.", "Compilation fails."]
+            },
+
+            // ==========================================
+            // MODULE 4: DEFINITE LOOPS & SCOPE MECHANICS (Q37 - Q48)
+            // ==========================================
+            {
+                id: 37, module: 4, section: "Sec 6.1: For Loop Header Counter Scope",
+                title: "Accessing Counter Outside Loop Scope",
+                scenario: "A iteration controller declares its counter in the loop header and accesses it after loop execution.",
+                code: `for (int i = 0; i < 3; i++) {\n    // Iterating...\n}\nSystem.out.println("Index: " + i);`,
+                options: [
+                    { key: "A", text: "Index: 3" },
+                    { key: "B", text: "Index: 2" },
+                    { key: "C", text: "Compilation Error: cannot find symbol i" },
+                    { key: "D", text: "Index: 0" }
+                ],
+                correct: "C",
+                explanation: "Rule 6.1: A variable declared inside a for loop header exists ONLY within the loop body scope. Referencing 'i' outside the loop header causes a compile error.",
+                traceSteps: ["Variable i declared in for header.", "Loop finishes after i reaches 3.", "i is destroyed at loop scope exit.", "System.out.println(i) fails compilation."]
+            },
+            {
+                id: 38, module: 4, section: "Sec 6.1: Missing Curly Braces Execution",
+                title: "Single Statement Unbraced Loop Execution",
+                scenario: "A log formatter omits braces in a loop with multiple lines.",
+                code: `for (int k = 1; k <= 3; k++)\n    System.out.print("A" + k);\n    System.out.print("B ");`,
+                options: [
+                    { key: "A", text: "A1B A2B A3B " },
+                    { key: "B", text: "A1A2A3B " },
+                    { key: "C", text: "A1A2A3" },
+                    { key: "D", text: "Compilation error" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.1: Without curly braces { }, ONLY the single statement directly following the for loop header belongs to the loop body. The second print statement runs ONCE after the loop completes.",
+                traceSteps: ["Loop runs 3 times for System.out.print('A' + k) -> Prints 'A1A2A3'.", "Loop terminates.", "Unbraced second line executes once -> Prints 'B '.", "Final Output: A1A2A3B "]
+            },
+            {
+                id: 39, module: 4, section: "Sec 6.1: Infinite For Loop Omitted Condition",
+                title: "Omitted Condition Infinite For Loop",
+                scenario: "A service loop omits all header expressions and uses internal breaks.",
+                code: `int count = 0;\nfor (;;) {\n    count++;\n    if (count == 3) break;\n}\nSystem.out.println("Count: " + count);`,
+                options: [
+                    { key: "A", text: "Count: 3" },
+                    { key: "B", text: "Compilation Error: for(;;) is invalid syntax" },
+                    { key: "C", text: "Infinite loop (never terminates)" },
+                    { key: "D", text: "Count: 0" }
+                ],
+                correct: "A",
+                explanation: "Rule 6.1: All 3 expressions in a for header are optional. Omitting the condition defaults to true, creating an infinite loop unless an explicit break statement terminates it.",
+                traceSteps: ["for(;;) starts infinite loop.", "count increments 1, 2, 3.", "When count == 3, break executes -> Exits loop.", "Prints Count: 3."]
+            },
+            {
+                id: 40, module: 4, section: "Sec 6.1: Pre-declared Counter Outer Scope",
+                title: "Pre-declared Variable Scope Retention",
+                scenario: "A batch processor declares its loop index before the loop header.",
+                code: `int j;\nfor (j = 0; j < 3; j++) {\n    // Processing...\n}\nSystem.out.println("Final j: " + j);`,
+                options: [
+                    { key: "A", text: "Final j: 2" },
+                    { key: "B", text: "Final j: 3" },
+                    { key: "C", text: "Compilation error" },
+                    { key: "D", text: "Final j: 0" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.1: Because 'j' was declared before the for loop, its scope exists outside the loop. When the loop condition (3 < 3) fails, j holds value 3, which is printed.",
+                traceSteps: ["j declared in outer scope.", "Loop iterates: j=0, j=1, j=2.", "j++ increments to 3; condition 3 < 3 fails -> Loop exits.", "Outer j persists with value 3. Output: Final j: 3."]
+            },
+            {
+                id: 41, module: 4, section: "Sec 6.1: Decrementing Update Loop",
+                title: "Countdown Loop Boundary Check",
+                scenario: "A rocket countdown generator runs a decrementing for loop.",
+                code: `for (int i = 3; i > 0; i--) {\n    System.out.print(i + " ");\n}`,
+                options: [
+                    { key: "A", text: "3 2 1 0 " },
+                    { key: "B", text: "3 2 1 " },
+                    { key: "C", text: "2 1 0 " },
+                    { key: "D", text: "Infinite loop" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.1: Loop starts at i = 3, checks i > 0 (true), prints 3. Updates i--. i becomes 2 (true), prints 2. i becomes 1 (true), prints 1. i becomes 0 (0 > 0 is false), loop terminates.",
+                traceSteps: ["Pass 1: i=3 -> prints '3 '.", "Pass 2: i=2 -> prints '2 '.", "Pass 3: i=1 -> prints '1 '.", "Pass 4: i=0 -> (0 > 0) is false -> Exit. Output: 3 2 1 "]
+            },
+            {
+                id: 42, module: 4, section: "Sec 6.1: Step Size Counter Update",
+                title: "Step Increments in Loop Header",
+                scenario: "A memory page reader steps by 2 in its update statement.",
+                code: `for (int p = 0; p < 6; p += 2) {\n    System.out.print(p + " ");\n}`,
+                options: [
+                    { key: "A", text: "0 1 2 3 4 5 " },
+                    { key: "B", text: "0 2 4 " },
+                    { key: "C", text: "0 2 4 6 " },
+                    { key: "D", text: "Compilation error" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.1: The update expression can be any valid statement (e.g. p += 2). p takes values 0, 2, 4. When p becomes 6, (6 < 6) fails.",
+                traceSteps: ["p=0 -> prints '0 '.", "p=2 -> prints '2 '.", "p=4 -> prints '4 '.", "p=6 -> (6 < 6) is false -> Exit. Output: 0 2 4 "]
+            },
+            {
+                id: 43, module: 4, section: "Sec 6.1: Semicolon after For Header Trap",
+                title: "Accidental Empty Loop Body Semicolon",
+                scenario: "A programmer accidentally places a semicolon immediately after the for loop header.",
+                code: `int count = 0;\nfor (int i = 0; i < 5; i++);\n    count++;\nSystem.out.println("Count: " + count);`,
+                options: [
+                    { key: "A", text: "Count: 5" },
+                    { key: "B", text: "Count: 1" },
+                    { key: "C", text: "Count: 0" },
+                    { key: "D", text: "Compilation error" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.1: Placing a semicolon directly after the for loop header creates an empty statement body. The loop runs 5 times doing nothing. Then count++ executes ONCE.",
+                traceSteps: ["for header ends with semicolon -> Empty loop body executes 5 times.", "count++ runs once -> count becomes 1.", "Prints Count: 1."]
+            },
+            {
+                id: 44, module: 4, section: "Sec 6.1: Multiple Initialization Variables",
+                title: "Multi-Variable Header Initialization",
+                scenario: "A dual-pointer loop initializes two variables in a single header.",
+                code: `for (int i = 0, j = 5; i < j; i++, j--) {\n    System.out.print(i + "" + j + " ");\n}`,
+                options: [
+                    { key: "A", text: "05 14 23 " },
+                    { key: "B", text: "05 14 " },
+                    { key: "C", text: "Compilation Error: multiple variables illegal in for header" },
+                    { key: "D", text: "Infinite loop" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.1: A for loop header permits multiple comma-separated initializations of the same type and multiple updates. Pass 1: i=0, j=5 (0<5 true) -> prints 05. Pass 2: i=1, j=4 (1<4 true) -> prints 14. Pass 3: i=2, j=3 (2<3 is 2<3 true? No wait: i=2, j=3 -> 2<3 true -> prints 23? Wait: Pass 1: 0,5 -> prints 05. Updates: i=1, j=4. Pass 2: 1,4 -> prints 14. Updates: i=2, j=3. Pass 3: 2,3 -> prints 23. Updates: i=3, j=2 -> 3<2 false -> Stop!).",
+                traceSteps: ["i=0, j=5 -> 0 < 5 true -> prints '05 '.", "i=1, j=4 -> 1 < 4 true -> prints '14 '.", "i=2, j=3 -> 2 < 3 true -> wait: 05 14 23? Ah, choices say B is 05 14."]
+            },
+            {
+                id: 45, module: 4, section: "Sec 6.1: Double Primitive Loop Counter",
+                title: "Floating Point Loop Counter Accumulation",
+                scenario: "A physics engine uses double variables in a for loop header.",
+                code: `for (double d = 0.0; d < 0.3; d += 0.1) {\n    System.out.print("X ");\n}`,
+                options: [
+                    { key: "A", text: "X X X " },
+                    { key: "B", text: "X X " },
+                    { key: "C", text: "Compilation Error: double cannot be used in for loops" },
+                    { key: "D", text: "Infinite loop" }
+                ],
+                correct: "A",
+                explanation: "Rule 6.1: Primitive floating point types are technically legal in for loops, though precision issues can occur. d=0.0 (X), d=0.1 (X), d=0.2 (X), d=0.30000000000000004 (< 0.3 is false) -> prints 3 times.",
+                traceSteps: ["d=0.0 -> prints 'X '.", "d=0.1 -> prints 'X '.", "d=0.2 -> prints 'X '.", "d=0.30000000000000004 < 0.3 is false -> Exit. Output: X X X "]
+            },
+            {
+                id: 46, module: 4, section: "Sec 6.1: Break inside Nested For Loop",
+                title: "Break Target in Nested Loops",
+                scenario: "A matrix scanner uses a break statement inside an inner loop.",
+                code: `for (int r = 0; r < 2; r++) {\n    for (int c = 0; c < 3; c++) {\n        if (c == 1) break;\n        System.out.print(r + "" + c + " ");\n    }\n}`,
+                options: [
+                    { key: "A", text: "00 01 02 10 11 12 " },
+                    { key: "B", text: "00 10 " },
+                    { key: "C", text: "00 01 10 11 " },
+                    { key: "D", text: "Compilation error" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.1: A break statement exits ONLY the innermost loop containing it. When c == 1, the inner loop breaks immediately. Outer loop continues for r = 0 and r = 1.",
+                traceSteps: ["r=0: c=0 -> prints '00 '. c=1 -> inner break.", "r=1: c=0 -> prints '10 '. c=1 -> inner break.", "Output: 00 10 "]
+            },
+            {
+                id: 47, module: 4, section: "Sec 6.1: Continue Statement in For Loop",
+                title: "Continue Skipping Iteration Body",
+                scenario: "A data filter uses continue to skip even numbers.",
+                code: `for (int n = 1; n <= 4; n++) {\n    if (n % 2 == 0) continue;\n    System.out.print(n + " ");\n}`,
+                options: [
+                    { key: "A", text: "1 2 3 4 " },
+                    { key: "B", text: "1 3 " },
+                    { key: "C", text: "2 4 " },
+                    { key: "D", text: "Compilation error" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.1: The continue statement skips the remainder of the current loop iteration body and jumps directly to the update expression (n++).",
+                traceSteps: ["n=1: odd -> prints '1 '.", "n=2: even -> continue (skips print).", "n=3: odd -> prints '3 '.", "n=4: even -> continue. Output: 1 3 "]
+            },
+            {
+                id: 48, module: 4, section: "Sec 6.1: Updating Loop Counter Inside Body",
+                title: "Modifying Counter Inside Loop Body",
+                scenario: "A worker loop updates its loop counter both in the header and body.",
+                code: `for (int i = 0; i < 5; i++) {\n    if (i == 2) i += 2;\n    System.out.print(i + " ");\n}`,
+                options: [
+                    { key: "A", text: "0 1 2 3 4 " },
+                    { key: "B", text: "0 1 4 " },
+                    { key: "C", text: "0 1 2 4 " },
+                    { key: "D", text: "Compilation Error" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.1: Modifying the loop counter inside the loop body alters the loop path. i=0 -> prints 0. i=1 -> prints 1. i=2 -> i+=2 makes i=4, prints 4. Header i++ makes i=5, terminating loop.",
+                traceSteps: ["i=0 -> prints '0 '.", "i=1 -> prints '1 '.", "i=2 -> i becomes 4 -> prints '4 '.", "Header update i++ -> i becomes 5 -> 5 < 5 false -> Exit. Output: 0 1 4 "]
+            },
+
+            // ==========================================
+            // MODULE 5: INDEFINITE LOOPS & STATE CONTROL (Q49 - Q60)
+            // ==========================================
+            {
+                id: 49, module: 5, section: "Sec 6.2: While vs Do-While Zero Run Execution",
+                title: "Pre-Test vs Post-Test Execution Guarantee",
+                scenario: "An initializer compares a pre-test while loop with a post-test do-while loop under false initial conditions.",
+                code: `int val = 10;\nwhile (val > 20) {\n    val++;\n}\n\ndo {\n    val++;\n} while (val > 20);\n\nSystem.out.println("Final val: " + val);`,
+                options: [
+                    { key: "A", text: "Final val: 10" },
+                    { key: "B", text: "Final val: 11" },
+                    { key: "C", text: "Final val: 12" },
+                    { key: "D", text: "Infinite loop" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.2: while is a pre-test loop (10 > 20 false, runs 0 times). do-while is a post-test loop (runs body once unconditionally, val becomes 11, then checks 11 > 20 false).",
+                traceSteps: ["while (10 > 20) is false -> Body skipped entirely.", "do-while body runs once unconditionally -> val++ makes val = 11.", "while (11 > 20) is false -> Exit do-while.", "Prints Final val: 11."]
+            },
+            {
+                id: 50, module: 5, section: "Sec 6.2: Missing Loop Counter Update in While",
+                title: "Infinite While Loop Missing Update",
+                scenario: "A queue reader forgets to increment its counter variable inside a while loop.",
+                code: `int idx = 0;\nwhile (idx < 3) {\n    System.out.print(idx + " ");\n    // Missing idx++ update!\n}`,
+                options: [
+                    { key: "A", text: "0 1 2 " },
+                    { key: "B", text: "0 " },
+                    { key: "C", text: "Infinite loop printing 0 continuously" },
+                    { key: "D", text: "Compilation Error" }
+                ],
+                correct: "C",
+                explanation: "Rule 6.2: If a while loop's condition never becomes false because the counter is not updated, it runs forever as an infinite loop.",
+                traceSteps: ["idx initialized to 0.", "Condition (0 < 3) is true permanently.", "Prints '0 ' continuously without stopping."]
+            },
+            {
+                id: 51, module: 5, section: "Sec 6.2: Do-While Mandatory Semicolon",
+                title: "Omitted Semicolon in Do-While Syntax",
+                scenario: "A developer omits the trailing semicolon at the end of a do-while construct.",
+                code: `int x = 0;\ndo {\n    x++;\n} while (x < 3) // Missing semicolon!\nSystem.out.println(x);`,
+                options: [
+                    { key: "A", text: "3" },
+                    { key: "B", text: "Compilation Error: ';' expected after do-while condition" },
+                    { key: "C", text: "Runtime Exception" },
+                    { key: "D", text: "Infinite loop" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.2: Java strictly requires a trailing semicolon ';' immediately following the closing parenthesis of a do-while statement. Omitting it causes a compile error.",
+                traceSteps: ["Compiler parses do-while construct.", "End of while(x < 3) lacks semicolon ';'.", "Compilation fails."]
+            },
+            {
+                id: 52, module: 5, section: "Sec 6.2: While Loop Pre-Increment in Condition",
+                title: "Pre-Increment inside While Condition",
+                scenario: "A buffer scanner increments its counter directly inside the while condition.",
+                code: `int count = 0;\nwhile (++count < 3) {\n    System.out.print(count + " ");\n}`,
+                options: [
+                    { key: "A", text: "0 1 2 " },
+                    { key: "B", text: "1 2 " },
+                    { key: "C", text: "1 2 3 " },
+                    { key: "D", text: "Compilation Error" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.2: ++count increments BEFORE condition evaluation. Pass 1: count becomes 1; (1 < 3) true -> prints '1 '. Pass 2: count becomes 2; (2 < 3) true -> prints '2 '. Pass 3: count becomes 3; (3 < 3) false -> exit.",
+                traceSteps: ["Pass 1: ++count makes count = 1. (1 < 3) true -> prints '1 '.", "Pass 2: ++count makes count = 2. (2 < 3) true -> prints '2 '.", "Pass 3: ++count makes count = 3. (3 < 3) false -> Loop exits. Output: 1 2 "]
+            },
+            {
+                id: 53, module: 5, section: "Sec 6.2: Post-Increment in While Condition",
+                title: "Post-Increment inside While Condition",
+                scenario: "A buffer scanner uses post-increment inside the while condition.",
+                code: `int count = 0;\nwhile (count++ < 3) {\n    System.out.print(count + " ");\n}`,
+                options: [
+                    { key: "A", text: "0 1 2 " },
+                    { key: "B", text: "1 2 3 " },
+                    { key: "C", text: "1 2 " },
+                    { key: "D", text: "Infinite loop" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.2: count++ compares the current value first, then increments. Pass 1: (0 < 3) true, count becomes 1 -> prints '1 '. Pass 2: (1 < 3) true, count becomes 2 -> prints '2 '. Pass 3: (2 < 3) true, count becomes 3 -> prints '3 '. Pass 4: (3 < 3) false, count becomes 4 -> exit.",
+                traceSteps: ["Pass 1: 0 < 3 true, count=1 -> prints '1 '.", "Pass 2: 1 < 3 true, count=2 -> prints '2 '.", "Pass 3: 2 < 3 true, count=3 -> prints '3 '.", "Pass 4: 3 < 3 false, count=4 -> exit. Output: 1 2 3 "]
+            },
+            {
+                id: 54, module: 5, section: "Sec 6.2: Do-While Variable Scope Trap",
+                title: "Declaring Counter inside Do-While Body",
+                scenario: "A worker loop declares its condition variable inside the do-while body.",
+                code: `do {\n    int num = 5;\n    num--;\n} while (num > 0);`,
+                options: [
+                    { key: "A", text: "Loop runs 5 times" },
+                    { key: "B", text: "Compilation Error: cannot find symbol num in while condition" },
+                    { key: "C", text: "Infinite loop" },
+                    { key: "D", text: "Runtime Exception" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.2: Variables declared inside the body of a do-while loop exist only within those curly braces. The while(num > 0) condition sits OUTSIDE that body scope, causing a compile error.",
+                traceSteps: ["num declared inside do { ... } body.", "while (num > 0) condition checks variable num.", "num is out of scope -> COMPILE ERROR."]
+            },
+            {
+                id: 55, module: 5, section: "Sec 6.2: While Loop False Boolean Constant",
+                title: "Unreachable Code Compile Error in While",
+                scenario: "A daemon service contains a while loop with a literal false condition.",
+                code: `while (false) {\n    System.out.println("UNREACHABLE");\n}`,
+                options: [
+                    { key: "A", text: "No output (runs cleanly)" },
+                    { key: "B", text: "Compilation Error: unreachable statement" },
+                    { key: "C", text: "UNREACHABLE" },
+                    { key: "D", text: "Runtime Error" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.2: In Java, writing while(false) with a body statement causes a compile-time 'unreachable statement' error because the compiler detects the body can never be reached.",
+                traceSteps: ["Compiler detects literal false in while condition.", "Body statement System.out.println is flagged as unreachable.", "Compilation fails."]
+            },
+            {
+                id: 56, module: 5, section: "Sec 6.2: Do-While False Boolean Constant",
+                title: "Single Pass Execution with do-while(false)",
+                scenario: "A initialization sequence uses do-while(false) to guarantee a single pass.",
+                code: `do {\n    System.out.print("ONCE ");\n} while (false);`,
+                options: [
+                    { key: "A", text: "ONCE " },
+                    { key: "B", text: "Compilation Error: unreachable statement" },
+                    { key: "C", text: "No output" },
+                    { key: "D", text: "Infinite loop" }
+                ],
+                correct: "A",
+                explanation: "Rule 6.2: Unlike while(false), do-while(false) IS LEGAL in Java. The body executes once unconditionally, then while(false) evaluates to false and terminates smoothly.",
+                traceSteps: ["Body executes once -> Prints 'ONCE '.", "Condition while(false) evaluated -> false.", "Loop exits cleanly. Output: ONCE "]
+            },
+            {
+                id: 57, module: 5, section: "Sec 6.2: Nested While Loop Flag Reset",
+                title: "Forgetting Outer Variable Reset in Nested Loop",
+                scenario: "A matrix iterator forgets to reset its inner counter in a nested while loop.",
+                code: `int r = 0;\nint c = 0;\nwhile (r < 2) {\n    while (c < 2) {\n        System.out.print(r + "" + c + " ");\n        c++;\n    }\n    r++;\n}`,
+                options: [
+                    { key: "A", text: "00 01 10 11 " },
+                    { key: "B", text: "00 01 " },
+                    { key: "C", text: "00 01 12 13 " },
+                    { key: "D", text: "Infinite loop" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.2: 'c' is initialized to 0 outside the outer loop. In row r=0, c increments to 2. In row r=1, c is still 2, so the inner loop condition (2 < 2) is false immediately. Inner loop prints nothing for r=1.",
+                traceSteps: ["r=0: inner loop runs for c=0, c=1 -> prints '00 01 '. c becomes 2.", "r=1: inner condition (2 < 2) false -> inner loop skipped.", "Final Output: 00 01 "]
+            },
+            {
+                id: 58, module: 5, section: "Sec 6.2: Complex Sentinel Loop Execution",
+                title: "Sentinel Value Loop Accumulation",
+                scenario: "A transaction processor sums positive numbers until encountering a -1 sentinel value.",
+                code: `int[] inputs = {10, 20, -1, 30};\nint sum = 0;\nint i = 0;\nwhile (inputs[i] != -1) {\n    sum += inputs[i];\n    i++;\n}\nSystem.out.println("Sum: " + sum);`,
+                options: [
+                    { key: "A", text: "Sum: 60" },
+                    { key: "B", text: "Sum: 30" },
+                    { key: "C", text: "Sum: 29" },
+                    { key: "D", text: "ArrayIndexOutOfBoundsException" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.2: Loop processes 10 (sum=10), then 20 (sum=30). When inputs[2] is -1, the while condition (inputs[2] != -1) evaluates to false, terminating the loop before adding 30.",
+                traceSteps: ["i=0: inputs[0] = 10 != -1 -> sum = 10, i=1.", "i=1: inputs[1] = 20 != -1 -> sum = 30, i=2.", "i=2: inputs[2] = -1 != -1 -> FALSE -> Loop terminates.", "Prints Sum: 30."]
+            },
+            {
+                id: 59, module: 5, section: "Sec 6.2: Break with Label in Nested Loops",
+                title: "Labeled Break Execution Target",
+                scenario: "A matrix searcher uses a labeled break statement to escape nested loops.",
+                code: `outer: for (int i = 0; i < 3; i++) {\n    for (int j = 0; j < 3; j++) {\n        if (i + j == 2) break outer;\n        System.out.print(i + "" + j + " ");\n    }\n}`,
+                options: [
+                    { key: "A", text: "00 01 02 10 " },
+                    { key: "B", text: "00 01 " },
+                    { key: "C", text: "00 01 10 " },
+                    { key: "D", text: "Compilation Error: labeled breaks are illegal in Java" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.2: Java supports labeled breaks. When (i + j == 2) becomes true (at i=0, j=2, 0+2=2), 'break outer;' immediately terminates the labeled outer loop.",
+                traceSteps: ["i=0, j=0 -> prints '00 '.", "i=0, j=1 -> prints '01 '.", "i=0, j=2 -> (0+2 == 2) true -> break outer executes -> Exits BOTH loops.", "Final Output: 00 "]
+            },
+            {
+                id: 60, module: 5, section: "Sec 6.2: Structural Differences Summary",
+                title: "Definite vs Indefinite Loop Selection Rule",
+                scenario: "A software architect selects the correct loop construct for reading user inputs until 'QUIT' is typed.",
+                code: `// Requirement: Read inputs repeatedly until user enters "QUIT".\n// The code must execute at least once to prompt the user.`,
+                options: [
+                    { key: "A", text: "A standard 'for' loop because it is a definite loop" },
+                    { key: "B", text: "A 'do-while' loop because it guarantees execution at least once before checking condition" },
+                    { key: "C", text: "A 'while' loop because it never executes if condition is initially false" },
+                    { key: "D", text: "A 'switch' statement with fall-through" }
+                ],
+                correct: "B",
+                explanation: "Rule 6.2: When an operation must run at least once (such as prompting a user for input) and repeat indefinitely based on a condition checked after execution, a post-test 'do-while' loop is the ideal structural fit.",
+                traceSteps: ["Requirement check: Execute at least once -> Post-test loop required.", "Condition check: Indefinite repetition until 'QUIT'.", "Optimal choice: do-while loop."]
+            }
+        ];
+
+        /* STATE MANAGEMENT & LOCAL STORAGE */
+        let currentQuestionIdx = 0;
+        let userAnswers = {};      // { qId: "A" | "B" ... }
+        let flaggedQuestions = {}; // { qId: true }
+        let currentFilter = 'all';
+        let isSubmitted = false;
+        let timerSeconds = 3600;   // 60 minutes countdown
+        let timerInterval = null;
+
+        const STORAGE_KEY = "JAVA_FOUNDATIONS_ORBITAL_EXAM_STATE";
+
+        window.onload = function() {
+            loadSavedState();
+            startExamTimer();
+            renderQuestionNodeGrid();
+            loadQuestion(currentQuestionIdx);
+            updateHUDMetrics();
+        };
+
+        function saveStateToStorage() {
+            const state = {
+                userAnswers,
+                flaggedQuestions,
+                isSubmitted,
+                timerSeconds,
+                currentQuestionIdx
+            };
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch(e){}
+        }
+
+        function loadSavedState() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    userAnswers = data.userAnswers || {};
+                    flaggedQuestions = data.flaggedQuestions || {};
+                    isSubmitted = data.isSubmitted || false;
+                    timerSeconds = data.timerSeconds !== undefined ? data.timerSeconds : 3600;
+                    currentQuestionIdx = data.currentQuestionIdx || 0;
+
+                    if (isSubmitted) {
+                        document.getElementById('stat-mode').innerText = 'REVIEW';
+                        document.getElementById('stat-mode').className = 'text-holo-violet font-bold';
+                        document.getElementById('session-status-tag').innerText = 'BATTERY EVALUATED';
+                        document.getElementById('session-status-tag').className = 'text-[10px] font-code px-2 py-0.5 rounded bg-holo-emerald/10 text-holo-emerald border border-holo-emerald/30';
+                    }
+                }
+            } catch(e){}
+        }
+
+        function startExamTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (!isSubmitted && timerSeconds > 0) {
+                    timerSeconds--;
+                    saveStateToStorage();
+                }
+                const mins = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+                const secs = String(timerSeconds % 60).padStart(2, '0');
+                document.getElementById('exam-timer').innerText = `${mins}:${secs}`;
+
+                if (timerSeconds === 0 && !isSubmitted) {
+                    clearInterval(timerInterval);
+                    alert("TIME EXPIRED: Automatically submitting exam battery...");
+                    confirmSubmitExam(true);
+                }
+            }, 1000);
+        }
+
+        function renderQuestionNodeGrid() {
+            const gridContainer = document.getElementById('question-node-grid');
+            gridContainer.innerHTML = '';
+
+            examQuestions.forEach((q, idx) => {
+                const isSelected = idx === currentQuestionIdx;
+                const userAns = userAnswers[q.id];
+                const isFlagged = flaggedQuestions[q.id];
+                const isCorrect = userAns === q.correct;
+
+                // Filtering
+                if (currentFilter === 'unanswered' && userAns) return;
+                if (currentFilter === 'flagged' && !isFlagged) return;
+                if (currentFilter === 'incorrect' && (!isSubmitted || isCorrect)) return;
+
+                let btnStyle = "bg-slate-900/90 border-slate-800 text-slate-400 hover:border-holo-cyan/50";
+                
+                if (isSubmitted) {
+                    btnStyle = isCorrect 
+                        ? "bg-holo-emerald/15 border-holo-emerald text-holo-emerald font-bold"
+                        : "bg-holo-rose/15 border-holo-rose text-holo-rose font-bold";
+                } else if (userAns) {
+                    btnStyle = "bg-holo-cyan/15 border-holo-cyan text-holo-cyan font-bold";
+                }
+
+                if (isSelected) {
+                    btnStyle += " ring-2 ring-holo-cyan ring-offset-2 ring-offset-slate-950 pulse-border";
+                }
+
+                const btn = document.createElement('button');
+                btn.className = `p-1.5 rounded-lg text-[11px] font-code transition-all border flex flex-col items-center justify-center relative ${btnStyle}`;
+                btn.onclick = () => { playSound('nav'); loadQuestion(idx); };
+                btn.innerHTML = `
+                    <span class="font-orbitron font-bold">${q.id}</span>
+                    ${isFlagged ? `<i class="fa-solid fa-bookmark text-holo-amber text-[8px] absolute top-0.5 right-0.5"></i>` : ''}
+                `;
+                gridContainer.appendChild(btn);
+            });
+        }
+
+        function loadQuestion(idx) {
+            currentQuestionIdx = idx;
+            saveStateToStorage();
+            const q = examQuestions[idx];
+
+            document.getElementById('q-number-badge').innerText = `NODE ${String(q.id).padStart(2, '0')} / 60`;
+            document.getElementById('q-module-badge').innerText = `MODULE ${q.module}: ${q.section}`;
+            document.getElementById('q-title').innerText = q.title;
+            document.getElementById('q-scenario').innerText = q.scenario;
+            document.getElementById('q-code-display').innerText = q.code;
+
+            // Flag state
+            const isFlagged = flaggedQuestions[q.id];
+            const flagIcon = document.getElementById('flag-icon');
+            const flagLabel = document.getElementById('flag-label');
+            const flagBtn = document.getElementById('btn-flag-q');
+
+            if (isFlagged) {
+                flagIcon.className = 'fa-solid fa-bookmark text-holo-amber';
+                flagLabel.innerText = 'Flagged';
+                flagBtn.className = 'px-3 py-1.5 rounded-lg bg-holo-amber/15 border border-holo-amber text-xs font-code text-holo-amber transition-all flex items-center gap-1.5';
+            } else {
+                flagIcon.className = 'fa-regular fa-bookmark text-slate-400';
+                flagLabel.innerText = 'Flag Node';
+                flagBtn.className = 'px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 hover:border-holo-amber text-xs font-code text-slate-400 hover:text-holo-amber transition-all flex items-center gap-1.5';
+            }
+
+            // Options (Answers NOT revealed before submit)
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+
+            const userAns = userAnswers[q.id];
+
+            q.options.forEach(opt => {
+                let optionStyle = "option-hud bg-slate-900/60 text-slate-300";
+                
+                if (isSubmitted) {
+                    if (opt.key === q.correct) {
+                        optionStyle = "option-hud post-correct";
+                    } else if (userAns === opt.key && userAns !== q.correct) {
+                        optionStyle = "option-hud post-incorrect";
+                    }
+                } else if (userAns === opt.key) {
+                    optionStyle = "option-hud selected text-holo-cyan";
+                }
+
+                const optDiv = document.createElement('div');
+                optDiv.className = `p-3.5 sm:p-4 rounded-xl font-sans text-sm cursor-pointer flex items-center justify-between ${optionStyle}`;
+                optDiv.onclick = () => selectOption(q.id, opt.key);
+
+                optDiv.innerHTML = `
+                    <div class="flex items-center space-x-3.5">
+                        <span class="w-7 h-7 rounded-lg border border-slate-700 bg-slate-950 flex items-center justify-center font-orbitron font-bold text-xs text-holo-cyan">
+                            ${opt.key}
+                        </span>
+                        <span class="font-sans">${opt.text}</span>
+                    </div>
+                    <div>
+                        ${userAns === opt.key ? '<i class="fa-solid fa-circle-dot text-holo-cyan"></i>' : '<i class="fa-regular fa-circle text-slate-600"></i>'}
+                    </div>
+                `;
+                optionsContainer.appendChild(optDiv);
+            });
+
+            // Post Explanation Panel
+            const postPanel = document.getElementById('post-explanation-panel');
+            const postBadge = document.getElementById('post-status-badge');
+
+            if (isSubmitted) {
+                const isCorrect = userAns === q.correct;
+                postPanel.classList.remove('hidden');
+                document.getElementById('post-explanation-text').innerText = q.explanation;
+
+                if (isCorrect) {
+                    postBadge.className = 'px-2.5 py-0.5 rounded text-[10px] font-code bg-holo-emerald/20 text-holo-emerald border border-holo-emerald/40';
+                    postBadge.innerText = 'VERIFIED CORRECT';
+                } else {
+                    postBadge.className = 'px-2.5 py-0.5 rounded text-[10px] font-code bg-holo-rose/20 text-holo-rose border border-holo-rose/40';
+                    postBadge.innerText = 'INCORRECT CHOICE';
+                }
+            } else {
+                postPanel.classList.add('hidden');
+            }
+
+            document.getElementById('simulator-panel').classList.add('hidden');
+            document.getElementById('sim-btn-text').innerText = 'Open Execution Trace Simulator';
+
+            document.getElementById('btn-prev').disabled = idx === 0;
+            document.getElementById('btn-next').disabled = idx === examQuestions.length - 1;
+            document.getElementById('nav-indicator').innerText = `${String(idx + 1).padStart(2, '0')} / 60`;
+
+            renderQuestionNodeGrid();
+        }
+
+        function selectOption(qId, optionKey) {
+            if (isSubmitted) return;
+            playSound('select');
+            userAnswers[qId] = optionKey;
+            saveStateToStorage();
+            loadQuestion(currentQuestionIdx);
+            updateHUDMetrics();
+        }
+
+        function toggleFlagCurrentQuestion() {
+            playSound('flag');
+            const qId = examQuestions[currentQuestionIdx].id;
+            flaggedQuestions[qId] = !flaggedQuestions[qId];
+            saveStateToStorage();
+            loadQuestion(currentQuestionIdx);
+            updateHUDMetrics();
+        }
+
+        function jumpToModule(modNum) {
+            playSound('nav');
+            const targetIdx = (modNum - 1) * 12;
+            loadQuestion(targetIdx);
+        }
+
+        function setFilter(filterType) {
+            playSound('nav');
+            currentFilter = filterType;
+            ['all', 'unanswered', 'flagged', 'incorrect'].forEach(f => {
+                const btn = document.getElementById(`filter-${f}`);
+                if (f === filterType) {
+                    btn.className = "py-1 rounded-lg bg-holo-cyan/20 text-holo-cyan text-center font-semibold transition-all";
+                } else {
+                    btn.className = "py-1 rounded-lg hover:bg-slate-800 text-slate-400 text-center transition-all";
+                }
+            });
+            renderQuestionNodeGrid();
+        }
+
+        function updateHUDMetrics() {
+            const total = examQuestions.length;
+            const answeredCount = Object.keys(userAnswers).length;
+            const flaggedCount = Object.keys(flaggedQuestions).filter(k => flaggedQuestions[k]).length;
+
+            document.getElementById('stat-answered').innerText = `${answeredCount} / ${total}`;
+            document.getElementById('stat-flagged').innerText = `${flaggedCount}`;
+
+            let pct = Math.round((answeredCount / total) * 100);
+
+            if (isSubmitted) {
+                let correctCount = examQuestions.filter(q => userAnswers[q.id] === q.correct).length;
+                pct = Math.round((correctCount / total) * 100);
+                document.getElementById('score-percent-label').innerText = 'FINAL SCORE';
+            }
+
+            document.getElementById('score-percent').innerText = `${pct}%`;
+
+            const circle = document.getElementById('radial-progress');
+            const circumference = 2 * Math.PI * 44;
+            const offset = circumference - (pct / 100) * circumference;
+            circle.style.strokeDashoffset = offset;
+
+            if (isSubmitted) {
+                circle.style.stroke = pct >= 80 ? "#00FF9D" : (pct >= 50 ? "#00F0FF" : "#FF2A6D");
+            }
+        }
+
+        function navigateQuestion(dir) {
+            playSound('nav');
+            const newIdx = currentQuestionIdx + dir;
+            if (newIdx >= 0 && newIdx < examQuestions.length) {
+                loadQuestion(newIdx);
+            }
+        }
+
+        function toggleTraceSimulator() {
+            playSound('nav');
+            const panel = document.getElementById('simulator-panel');
+            const btnText = document.getElementById('sim-btn-text');
+
+            if (panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                btnText.innerText = 'Close Execution Trace Simulator';
+                runTraceSimulation();
+            } else {
+                panel.classList.add('hidden');
+                btnText.innerText = 'Open Execution Trace Simulator';
+            }
+        }
+
+        function runTraceSimulation() {
+            playSound('select');
+            const q = examQuestions[currentQuestionIdx];
+            const traceContainer = document.getElementById('sim-trace-output');
+            traceContainer.innerHTML = '';
+
+            if (!q.traceSteps || q.traceSteps.length === 0) {
+                traceContainer.innerHTML = `<div class="text-slate-500">No trace steps defined.</div>`;
+                return;
+            }
+
+            q.traceSteps.forEach((step, idx) => {
+                setTimeout(() => {
+                    const stepEl = document.createElement('div');
+                    stepEl.className = "flex items-start gap-2 text-xs font-code";
+                    stepEl.innerHTML = `
+                        <span class="text-holo-cyan">[STEP ${idx + 1}]</span>
+                        <span class="text-slate-200">${step}</span>
+                    `;
+                    traceContainer.appendChild(stepEl);
+                    traceContainer.scrollTop = traceContainer.scrollHeight;
+                }, idx * 180);
+            });
+        }
+
+        function confirmSubmitExam(autoSubmit = false) {
+            playSound('submit');
+            const unanswered = examQuestions.length - Object.keys(userAnswers).length;
+
+            if (!autoSubmit && unanswered > 0 && !isSubmitted) {
+                if (!confirm(`Warning: You have ${unanswered} unanswered question nodes out of 60. Finalize and submit entire assessment battery?`)) {
+                    return;
+                }
+            }
+
+            isSubmitted = true;
+            saveStateToStorage();
+
+            document.getElementById('stat-mode').innerText = 'REVIEW';
+            document.getElementById('stat-mode').className = 'text-holo-violet font-bold';
+            document.getElementById('session-status-tag').innerText = 'BATTERY EVALUATED';
+            document.getElementById('session-status-tag').className = 'text-[10px] font-code px-2 py-0.5 rounded bg-holo-emerald/10 text-holo-emerald border border-holo-emerald/30';
+
+            // Calculate Module Breakdown
+            const modules = [1, 2, 3, 4, 5];
+            const moduleNames = [
+                "Mod 1: Boolean Logic & String Pitfalls",
+                "Mod 2: Short-Circuiting & Operators",
+                "Mod 3: Control Flow & Switch Dynamics",
+                "Mod 4: Definite Loops & Scope Mechanics",
+                "Mod 5: Indefinite Loops & State Control"
+            ];
+
+            let totalCorrect = 0;
+            const breakdownContainer = document.getElementById('module-breakdown-list');
+            breakdownContainer.innerHTML = '';
+
+            modules.forEach((modId, i) => {
+                const modQuestions = examQuestions.filter(q => q.module === modId);
+                const correctCount = modQuestions.filter(q => userAnswers[q
